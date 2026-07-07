@@ -54,6 +54,31 @@ Mở `summarize.py`, phần đầu file:
 
 Đổi lịch chạy: sửa dòng `cron` trong `.github/workflows/digest.yml` (giờ UTC).
 
+## (Tùy chọn) Đọc newsletter từ Gmail
+
+Ngoài RSS, script có thể đọc thẳng newsletter trong Gmail và tóm tắt cùng bản tin. Phần này KHÔNG bắt buộc — bỏ qua thì hệ thống vẫn chạy bình thường chỉ với RSS.
+
+**Cách hoạt động:** script chỉ ĐỌC hộp thư ở chế độ read-only (không sửa/xóa email), chỉ đọc trong 1 nhãn riêng bạn tự tạo, và dùng Message-ID để chống trùng.
+
+### 1. Tạo nhãn + filter trong Gmail
+- Tạo nhãn tên `Newsletters` (Settings → Labels → Create new label).
+- Tạo filter đưa newsletter vào nhãn đó: khi có email newsletter, mở email → menu ⋮ → **Filter messages like these** → **Create filter** → tích **Apply the label: Newsletters** (nên tích thêm **Skip the Inbox** nếu muốn newsletter không làm rối inbox).
+- (Nếu đặt tên nhãn khác, sửa `GMAIL_LABEL` trong `summarize.py`.)
+
+### 2. Tạo App Password của Google
+App Password là mật khẩu riêng cho ứng dụng, KHÔNG phải mật khẩu chính của bạn.
+- Tài khoản Google phải **bật xác minh 2 bước** trước (2-Step Verification).
+- Vào https://myaccount.google.com/apppasswords → tạo 1 app password (đặt tên bất kỳ như "blog-digest").
+- Google trả về chuỗi 16 ký tự — copy lại (bỏ khoảng trắng khi dán cũng được).
+
+### 3. Thêm 2 Secret trên GitHub
+| Tên | Giá trị |
+|-----|---------|
+| `GMAIL_ADDRESS` | địa chỉ Gmail của bạn |
+| `GMAIL_APP_PASSWORD` | app password 16 ký tự ở bước 2 |
+
+Xong. Lần chạy tiếp theo, newsletter mới trong nhãn `Newsletters` sẽ được tóm tắt và gộp chung vào bản tin Discord.
+
 ## Lưu ý
 
 - Khóa bí mật (khóa OpenRouter + webhook Discord) chỉ nằm trong GitHub Secrets, không có trong code → repo để public vẫn an toàn. Lưu ý: ai có webhook URL đều gửi được tin vào kênh của bạn, nên đừng để lộ nó ra ngoài.

@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 """
-Blog Digest — tự động tóm tắt bài blog mới và gửi về Discord.
+Blog Digest — tự động tóm tắt bài blog + newsletter mới và gửi về Discord.
 
 Luồng xử lý:
-  1. Đọc danh sách feed từ feeds.txt
-  2. Parse RSS, lấy các bài trong feed
-  3. Lọc bài MỚI (so với state.json — chống trùng lặp)
-  4. Tải toàn bộ nội dung bài viết (trafilatura)
+  1. Đọc danh sách feed từ feeds.txt + (tùy chọn) đọc newsletter trong Gmail
+  2. Parse RSS / đọc email, lấy nội dung mới
+  3. Lọc mục MỚI (so với state.json — chống trùng lặp)
+  4. Tải toàn bộ nội dung (trafilatura cho RSS; body email cho newsletter)
   5. Gọi OpenRouter (model free) để tóm tắt
   6. Gộp tất cả tóm tắt thành 1 bản tin, gửi qua Discord
   7. Cập nhật state.json (sẽ được workflow commit ngược vào repo)
 
 Khóa bí mật đọc qua biến môi trường (GitHub Secrets), KHÔNG hard-code:
   OPENROUTER_API_KEY, DISCORD_WEBHOOK_URL
+  (tùy chọn, để đọc Gmail) GMAIL_ADDRESS, GMAIL_APP_PASSWORD
 """
 
 import os
 import sys
 import json
 import time
+import email
+import imaplib
+from email.header import decode_header
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -49,6 +54,12 @@ DISCORD_MAX_CHARS = 1900    # giới hạn ký tự / tin nhắn Discord (thực
 
 # Ngôn ngữ tóm tắt mong muốn
 SUMMARY_LANG = "tiếng Việt"
+
+# --- Cấu hình Gmail (tùy chọn) ---
+# Chỉ đọc email trong nhãn này (bạn tự tạo filter đưa newsletter vào nhãn).
+GMAIL_LABEL = "Newsletters"
+IMAP_HOST = "imap.gmail.com"
+GMAIL_LOOKBACK_DAYS = 7      # chỉ xét email trong N ngày gần nhất (giảm tải)
 
 
 # ----------------------------- State -----------------------------
@@ -108,6 +119,7 @@ def collect_new_entries(feeds: list[str], seen: set[str]) -> list[dict]:
                 "title": entry.get("title", "(không có tiêu đề)"),
                 "link": entry.get("link", eid),
                 "source": source,
+                "content": None,  # RSS: tải nội dung sau; email: đã có sẵn
             })
     return new_items
 
@@ -126,6 +138,97 @@ def fetch_article_text(url: str) -> str:
     except Exception as e:
         print(f"Lỗi tải bài {url}: {e}", file=sys.stderr)
         return ""
+
+
+# ----------------------------- Đọc newsletter từ Gmail -----------------------------
+
+def _decode_mime(value: str) -> str:
+    """Giải mã header email (tiêu đề, người gửi) về chuỗi đọc được."""
+    if not value:
+        return ""
+    out = []
+    for text, enc in decode_header(value):
+        if isinstance(text, bytes):
+            out.append(text.decode(enc or "utf-8", errors="replace"))
+        else:
+            out.append(text)
+    return "".join(out).strip()
+
+
+def _extract_email_text(msg) -> str:
+    """Lấy nội dung email: ưu tiên text/plain, nếu chỉ có HTML thì trích qua trafilatura."""
+    plain, html_body = None, None
+    if msg.is_multipart():
+        for part in msg.walk():
+            if "attachment" in str(part.get("Content-Disposition") or ""):
+                continue
+            ctype = part.get_content_type()
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                continue
+            charset = part.get_content_charset() or "utf-8"
+            text = payload.decode(charset, errors="replace")
+            if ctype == "text/plain" and plain is None:
+                plain = text
+            elif ctype == "text/html" and html_body is None:
+                html_body = text
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            charset = msg.get_content_charset() or "utf-8"
+            text = payload.decode(charset, errors="replace")
+            if msg.get_content_type() == "text/html":
+                html_body = text
+            else:
+                plain = text
+
+    if plain and plain.strip():
+        return plain
+    if html_body:
+        return trafilatura.extract(html_body) or ""
+    return ""
+
+
+def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> list[dict]:
+    """Đọc newsletter mới trong nhãn Gmail (READ-ONLY — không sửa/xóa gì trong hộp thư)."""
+    items = []
+    try:
+        imap = imaplib.IMAP4_SSL(IMAP_HOST)
+        imap.login(address, app_password)
+        # readonly=True: đảm bảo tuyệt đối không thay đổi trạng thái email của bạn
+        status, _ = imap.select(f'"{GMAIL_LABEL}"', readonly=True)
+        if status != "OK":
+            print(f"Không mở được nhãn Gmail '{GMAIL_LABEL}'. "
+                  f"Kiểm tra tên nhãn có đúng không.", file=sys.stderr)
+            imap.logout()
+            return items
+
+        since = (datetime.utcnow() - timedelta(days=GMAIL_LOOKBACK_DAYS)).strftime("%d-%b-%Y")
+        status, data = imap.search(None, f"(SINCE {since})")
+        if status != "OK":
+            imap.logout()
+            return items
+
+        for eid in data[0].split():
+            status, msg_data = imap.fetch(eid, "(RFC822)")
+            if status != "OK" or not msg_data or not msg_data[0]:
+                continue
+            msg = email.message_from_bytes(msg_data[0][1])
+            msg_id = (msg.get("Message-ID") or "").strip()
+            if not msg_id or msg_id in seen:
+                continue
+            body = _extract_email_text(msg)[:MAX_ARTICLE_CHARS]
+            items.append({
+                "id": msg_id,
+                "title": _decode_mime(msg.get("Subject")) or "(không tiêu đề)",
+                "link": None,  # email không có link bài gốc cố định
+                "source": _decode_mime(msg.get("From")),
+                "content": body,  # nội dung đã có sẵn, không cần tải lại
+            })
+        imap.logout()
+    except Exception as e:
+        print(f"Lỗi đọc Gmail: {e}", file=sys.stderr)
+    return items
 
 
 # ----------------------------- Tóm tắt qua OpenRouter -----------------------------
@@ -212,16 +315,25 @@ def main() -> int:
         return 1
 
     feeds = load_feeds()
-    if not feeds:
-        print("Danh sách feed rỗng.", file=sys.stderr)
+    gmail_addr = os.environ.get("GMAIL_ADDRESS")
+    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD")
+    gmail_on = bool(gmail_addr and gmail_pass)
+
+    if not feeds and not gmail_on:
+        print("Không có feed nào và cũng không bật Gmail.", file=sys.stderr)
         return 1
 
     state = load_state()
     seen = set(state["seen"])
     first_run = not STATE_FILE.exists()
 
-    new_items = collect_new_entries(feeds, seen)
-    print(f"Tìm thấy {len(new_items)} bài mới.")
+    # Thu thập từ cả 2 nguồn
+    new_items = collect_new_entries(feeds, seen) if feeds else []
+    if gmail_on:
+        gmail_items = collect_gmail_entries(gmail_addr, gmail_pass, seen)
+        print(f"Gmail: tìm thấy {len(gmail_items)} newsletter mới.")
+        new_items += gmail_items
+    print(f"Tổng cộng {len(new_items)} mục mới.")
 
     # LẦN CHẠY ĐẦU TIÊN: chỉ ghi nhận các bài hiện có là "đã thấy", KHÔNG tóm tắt —
     # tránh tóm tắt hàng loạt bài cũ và spam bạn ngay lần đầu.
@@ -248,9 +360,10 @@ def main() -> int:
     summaries = []
     for item in new_items:
         print(f"Đang xử lý: {item['title']}")
-        text = fetch_article_text(item["link"])
+        # Email đã có content sẵn; RSS thì tải toàn bài từ link
+        text = item.get("content") or (fetch_article_text(item["link"]) if item["link"] else "")
         if not text:
-            # Không tải được toàn bài → vẫn đánh dấu đã xử lý để không thử lại mãi
+            # Không lấy được nội dung → vẫn đánh dấu đã xử lý để không thử lại mãi
             seen.add(item["id"])
             continue
 
@@ -267,16 +380,18 @@ def main() -> int:
 
     # Gộp thành 1 bản tin (định dạng Markdown của Discord)
     if summaries:
-        lines = [f"📰 **Bản tin blog** — {len(summaries)} bài mới\n"]
+        lines = [f"📰 **Bản tin** — {len(summaries)} mục mới\n"]
         for s in summaries:
-            lines.append(
+            block = (
                 f"**{s['title']}**\n"
                 f"*{s['source']}*\n"
                 f"{s['summary']}\n"
-                f"🔗 <{s['link']}>\n"
             )
+            if s["link"]:  # email không có link thì bỏ dòng này
+                block += f"🔗 <{s['link']}>\n"
+            lines.append(block)
         send_discord("\n".join(lines), webhook_url)
-        print(f"Đã gửi bản tin gồm {len(summaries)} bài.")
+        print(f"Đã gửi bản tin gồm {len(summaries)} mục.")
     else:
         print("Không tạo được tóm tắt nào.")
 
