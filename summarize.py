@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Blog Digest — tự động tóm tắt bài blog mới và gửi về Telegram.
+Blog Digest — tự động tóm tắt bài blog mới và gửi về Discord.
 
 Luồng xử lý:
   1. Đọc danh sách feed từ feeds.txt
@@ -8,18 +8,17 @@ Luồng xử lý:
   3. Lọc bài MỚI (so với state.json — chống trùng lặp)
   4. Tải toàn bộ nội dung bài viết (trafilatura)
   5. Gọi OpenRouter (model free) để tóm tắt
-  6. Gộp tất cả tóm tắt thành 1 bản tin, gửi qua Telegram
+  6. Gộp tất cả tóm tắt thành 1 bản tin, gửi qua Discord
   7. Cập nhật state.json (sẽ được workflow commit ngược vào repo)
 
 Khóa bí mật đọc qua biến môi trường (GitHub Secrets), KHÔNG hard-code:
-  OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+  OPENROUTER_API_KEY, DISCORD_WEBHOOK_URL
 """
 
 import os
 import sys
 import json
 import time
-import html
 from pathlib import Path
 
 import requests
@@ -46,7 +45,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_ITEMS_PER_RUN = 15      # tối đa số bài xử lý mỗi lần chạy (tránh flood + rate limit)
 MAX_ARTICLE_CHARS = 8000    # cắt bớt bài quá dài trước khi đưa vào AI (tiết kiệm token)
 DELAY_BETWEEN_CALLS = 3     # giây nghỉ giữa 2 lần gọi API (né rate limit model free)
-TELEGRAM_MAX_CHARS = 4000   # giới hạn ký tự / tin nhắn Telegram (thực tế 4096, chừa lề)
+DISCORD_MAX_CHARS = 1900    # giới hạn ký tự / tin nhắn Discord (thực tế 2000, chừa lề)
 
 # Ngôn ngữ tóm tắt mong muốn
 SUMMARY_LANG = "tiếng Việt"
@@ -167,26 +166,21 @@ def summarize(text: str, title: str, api_key: str) -> str | None:
     return None
 
 
-# ----------------------------- Gửi Telegram -----------------------------
+# ----------------------------- Gửi Discord -----------------------------
 
-def send_telegram(text: str, token: str, chat_id: str) -> None:
-    """Gửi tin nhắn Telegram, tự chia nhỏ nếu vượt giới hạn ký tự."""
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    chunks = split_message(text, TELEGRAM_MAX_CHARS)
+def send_discord(text: str, webhook_url: str) -> None:
+    """Gửi tin nhắn Discord qua webhook, tự chia nhỏ nếu vượt giới hạn ký tự."""
+    chunks = split_message(text, DISCORD_MAX_CHARS)
     for chunk in chunks:
         try:
-            resp = requests.post(url, json={
-                "chat_id": chat_id,
-                "text": chunk,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }, timeout=30)
-            if resp.status_code != 200:
-                print(f"Lỗi gửi Telegram {resp.status_code}: {resp.text[:200]}",
+            resp = requests.post(webhook_url, json={"content": chunk}, timeout=30)
+            # Discord trả 204 (No Content) khi gửi thành công
+            if resp.status_code not in (200, 204):
+                print(f"Lỗi gửi Discord {resp.status_code}: {resp.text[:200]}",
                       file=sys.stderr)
         except Exception as e:
-            print(f"Lỗi gửi Telegram: {e}", file=sys.stderr)
-        time.sleep(1)
+            print(f"Lỗi gửi Discord: {e}", file=sys.stderr)
+        time.sleep(1)  # né rate limit của webhook Discord
 
 
 def split_message(text: str, limit: int) -> list[str]:
@@ -210,12 +204,11 @@ def split_message(text: str, limit: int) -> list[str]:
 
 def main() -> int:
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    tg_chat = os.environ.get("TELEGRAM_CHAT_ID")
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
 
-    if not all([api_key, tg_token, tg_chat]):
-        print("Thiếu biến môi trường: OPENROUTER_API_KEY / TELEGRAM_BOT_TOKEN / "
-              "TELEGRAM_CHAT_ID", file=sys.stderr)
+    if not all([api_key, webhook_url]):
+        print("Thiếu biến môi trường: OPENROUTER_API_KEY / DISCORD_WEBHOOK_URL",
+              file=sys.stderr)
         return 1
 
     feeds = load_feeds()
@@ -237,10 +230,10 @@ def main() -> int:
             seen.add(item["id"])
         state["seen"] = list(seen)
         save_state(state)
-        send_telegram(
+        send_discord(
             "✅ Blog Digest đã kích hoạt. Từ giờ bạn sẽ nhận tóm tắt các bài "
             "MỚI đăng sau thời điểm này.",
-            tg_token, tg_chat,
+            webhook_url,
         )
         print("Lần chạy đầu: đã seed state, bỏ qua tóm tắt.")
         return 0
@@ -272,20 +265,17 @@ def main() -> int:
         seen.add(item["id"])
         time.sleep(DELAY_BETWEEN_CALLS)
 
-    # Gộp thành 1 bản tin
+    # Gộp thành 1 bản tin (định dạng Markdown của Discord)
     if summaries:
-        lines = [f"📰 <b>Bản tin blog</b> — {len(summaries)} bài mới\n"]
+        lines = [f"📰 **Bản tin blog** — {len(summaries)} bài mới\n"]
         for s in summaries:
-            title = html.escape(s["title"])
-            source = html.escape(s["source"])
-            summary = html.escape(s["summary"])
             lines.append(
-                f"<b>{title}</b>\n"
-                f"<i>{source}</i>\n"
-                f"{summary}\n"
-                f'🔗 <a href="{s["link"]}">Đọc bài gốc</a>\n'
+                f"**{s['title']}**\n"
+                f"*{s['source']}*\n"
+                f"{s['summary']}\n"
+                f"🔗 <{s['link']}>\n"
             )
-        send_telegram("\n".join(lines), tg_token, tg_chat)
+        send_discord("\n".join(lines), webhook_url)
         print(f"Đã gửi bản tin gồm {len(summaries)} bài.")
     else:
         print("Không tạo được tóm tắt nào.")

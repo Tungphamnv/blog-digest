@@ -1,6 +1,6 @@
-# Blog Digest — Tóm tắt bài blog tự động về Telegram
+# Blog Digest — Tóm tắt bài blog tự động về Discord
 
-Tự động đọc RSS các blog bạn theo dõi, tải toàn bài, tóm tắt bằng AI (OpenRouter model free), rồi gộp thành 1 bản tin gửi qua Telegram. Chạy hoàn toàn miễn phí trên GitHub Actions.
+Tự động đọc RSS các blog bạn theo dõi, tải toàn bài, tóm tắt bằng AI (OpenRouter model free), rồi gộp thành 1 bản tin gửi qua Discord. Chạy hoàn toàn miễn phí trên GitHub Actions.
 
 ## Cách hoạt động
 
@@ -8,7 +8,7 @@ Tự động đọc RSS các blog bạn theo dõi, tải toàn bài, tóm tắt 
 GitHub Actions (cron mỗi 2h)
   → đọc feeds.txt → parse RSS → lọc bài mới (state.json)
   → tải toàn bài (trafilatura) → tóm tắt (OpenRouter free)
-  → gộp thành 1 bản tin → gửi Telegram
+  → gộp thành 1 bản tin → gửi Discord (webhook)
   → commit state.json ngược vào repo
 ```
 
@@ -21,21 +21,19 @@ Tạo 1 repo mới trên GitHub (public để dùng Actions miễn phí thoải 
 - Đăng ký tại https://openrouter.ai
 - Vào phần **Keys**, tạo 1 API key mới, copy lại.
 
-### 3. Tạo Telegram Bot
-- Mở Telegram, nhắn cho **@BotFather**, gõ `/newbot`, làm theo hướng dẫn.
-- Copy **bot token** BotFather trả về.
-- Lấy **chat ID** của bạn: nhắn 1 tin bất kỳ cho bot, rồi mở trình duyệt truy cập
-  `https://api.telegram.org/bot<TOKEN>/getUpdates` — tìm `"chat":{"id":...}`.
-  (Thay `<TOKEN>` bằng token thật.)
+### 3. Tạo Discord Webhook
+- Mở Discord, vào server của bạn (chưa có thì bấm dấu **+** để tạo server miễn phí).
+- Rê chuột vào 1 kênh text → bấm **bánh răng** (Edit Channel).
+- Vào **Integrations → Webhooks → New Webhook**, đặt tên, rồi **Copy Webhook URL**.
+- Link có dạng `https://discord.com/api/webhooks/.../...`
 
 ### 4. Khai báo Secrets trên GitHub
-Vào repo → **Settings → Secrets and variables → Actions → New repository secret**, thêm 3 secret:
+Vào repo → **Settings → Secrets and variables → Actions → New repository secret**, thêm 2 secret:
 
 | Tên | Giá trị |
 |-----|---------|
 | `OPENROUTER_API_KEY` | khóa OpenRouter ở bước 2 |
-| `TELEGRAM_BOT_TOKEN` | token bot ở bước 3 |
-| `TELEGRAM_CHAT_ID` | chat ID ở bước 3 |
+| `DISCORD_WEBHOOK_URL` | webhook URL ở bước 3 |
 
 ### 5. Thêm blog cần theo dõi
 Sửa file `feeds.txt`, mỗi dòng 1 link RSS. Nếu blog không lộ link RSS, thử
@@ -58,6 +56,6 @@ Mở `summarize.py`, phần đầu file:
 
 ## Lưu ý
 
-- Khóa bí mật chỉ nằm trong GitHub Secrets, không có trong code → repo để public vẫn an toàn.
+- Khóa bí mật (khóa OpenRouter + webhook Discord) chỉ nằm trong GitHub Secrets, không có trong code → repo để public vẫn an toàn. Lưu ý: ai có webhook URL đều gửi được tin vào kênh của bạn, nên đừng để lộ nó ra ngoài.
 - Model free của OpenRouter có giới hạn request/ngày và đôi khi thay đổi — nếu tóm tắt trống, kiểm tra log trong tab Actions và thử đổi model.
 - Nếu 1 bài không tải được toàn văn (bị chặn/paywall), nó sẽ bị bỏ qua nhưng vẫn được đánh dấu đã xử lý để không thử lại mãi.
