@@ -1,0 +1,7 @@
+# Danh sách RSS feed cần theo dõi — mỗi dòng 1 URL.
+# Dòng bắt đầu bằng # là ghi chú, sẽ bị bỏ qua.
+# Thêm/bớt blog chỉ cần sửa file này, không cần đụng đến code.
+
+https://blog.pragmaticengineer.com/rss/
+https://simonwillison.net/atom/everything/
+# https://example.com/feed
