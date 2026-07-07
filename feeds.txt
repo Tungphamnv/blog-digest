@@ -1,7 +1,45 @@
-# Danh sách RSS feed cần theo dõi — mỗi dòng 1 URL.
-# Dòng bắt đầu bằng # là ghi chú, sẽ bị bỏ qua.
-# Thêm/bớt blog chỉ cần sửa file này, không cần đụng đến code.
+# ============================================================
+# feeds.txt — Danh sách RSS feed cần theo dõi
+# Mỗi dòng 1 URL. Dòng bắt đầu bằng # là ghi chú (bị bỏ qua).
+# Thêm/bớt blog chỉ cần sửa file này, không đụng đến code.
+# ============================================================
 
-https://blog.pragmaticengineer.com/rss/
+# ---------------- UX / UI ----------------
+
+# Nielsen Norman Group — nền tảng của ngành, bài nghiên cứu kỹ về usability
+https://www.nngroup.com/feed/rss/
+
+# Smashing Magazine — thiên thực hành: workflow, front-end, case study
+https://www.smashingmagazine.com/feed/
+
+# UX Collective — ấn phẩm UX lớn nhất trên Medium, nhịp đăng dày
+https://uxdesign.cc/feed
+
+# ---------------- AI Product ----------------
+
+# Simon Willison — nhật ký "tuần này LLM làm được gì", benchmark model mới hằng ngày
 https://simonwillison.net/atom/everything/
-# https://example.com/feed
+
+# The Product Compass — AI product management với độ sâu kỹ thuật (RAG, agent, workflow)
+https://www.productcompass.pm/feed
+
+# Import AI (Jack Clark, đồng sáng lập Anthropic) — nghiên cứu tuần, không thổi phồng
+https://importai.substack.com/feed
+
+# Lenny's Newsletter — PM lớn nhất; phần lớn miễn phí, bản sâu sau tường phí
+https://www.lennysnewsletter.com/feed
+
+# Stratechery (Ben Thompson) — lăng kính chiến lược; feed miễn phí chỉ một phần
+https://stratechery.com/feed/
+
+# ---------------- Gợi ý thêm (đang tắt) ----------------
+# Bỏ dấu # ở đầu dòng để bật. Đừng bật hết cùng lúc kẻo bản tin bị ngộp.
+#
+# Latent Space — blog/podcast "AI engineering"
+# https://www.latent.space/feed
+#
+# A List Apart — web standards & best practices
+# https://alistapart.com/main/feed/
+#
+# Growth.Design — case study dạng comic (email-first; nếu không ra feed thì
+# đăng ký email rồi cho qua tính năng Gmail/Kill-the-Newsletter)
