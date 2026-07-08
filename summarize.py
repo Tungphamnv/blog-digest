@@ -39,9 +39,10 @@ STATE_FILE = Path("state.json")
 # LƯU Ý: danh sách model free thay đổi theo thời gian — kiểm tra tại
 # https://openrouter.ai/models?max_price=0 và cập nhật lại nếu cần.
 OPENROUTER_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemini-2.0-flash-exp:free",
-    "mistralai/mistral-7b-instruct:free",
+    "tencent/hy3:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "openrouter/free",
 ]
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -275,6 +276,7 @@ def summarize(text: str, title: str, api_key: str) -> str | None:
 def send_discord(text: str, webhook_url: str) -> None:
     """Gửi tin nhắn Discord qua webhook, tự chia nhỏ nếu vượt giới hạn ký tự."""
     chunks = split_message(text, DISCORD_MAX_CHARS)
+    failed = False
     for chunk in chunks:
         try:
             resp = requests.post(webhook_url, json={"content": chunk}, timeout=30)
@@ -282,9 +284,13 @@ def send_discord(text: str, webhook_url: str) -> None:
             if resp.status_code not in (200, 204):
                 print(f"Lỗi gửi Discord {resp.status_code}: {resp.text[:200]}",
                       file=sys.stderr)
+                failed = True
         except Exception as e:
             print(f"Lỗi gửi Discord: {e}", file=sys.stderr)
+            failed = True
         time.sleep(1)  # né rate limit của webhook Discord
+    if failed:
+        raise RuntimeError("Gửi Discord thất bại. Kiểm tra DISCORD_WEBHOOK_URL.")
 
 
 def split_message(text: str, limit: int) -> list[str]:
@@ -359,6 +365,7 @@ def main() -> int:
     new_items = new_items[:MAX_ITEMS_PER_RUN]
 
     summaries = []
+    failed_titles = []
     for item in new_items:
         print(f"Đang xử lý: {item['title']}")
         # Email đã có content sẵn; RSS thì tải toàn bài từ link
@@ -376,7 +383,11 @@ def main() -> int:
                 "source": item["source"],
                 "summary": summary,
             })
-        seen.add(item["id"])
+            seen.add(item["id"])
+        else:
+            failed_titles.append(item["title"])
+            print(f"Không tóm tắt được, sẽ thử lại lần sau: {item['title']}",
+                  file=sys.stderr)
         time.sleep(DELAY_BETWEEN_CALLS)
 
     # Gộp thành 1 bản tin (định dạng Markdown của Discord)
@@ -395,6 +406,14 @@ def main() -> int:
         print(f"Đã gửi bản tin gồm {len(summaries)} mục.")
     else:
         print("Không tạo được tóm tắt nào.")
+        detail = "\n".join(f"- {title}" for title in failed_titles[:8])
+        send_discord(
+            "⚠️ Blog Digest chạy xong nhưng không tạo được tóm tắt nào. "
+            "Khả năng cao model OpenRouter đang lỗi/quá tải.\n\n"
+            f"{detail}" if detail else
+            "⚠️ Blog Digest chạy xong nhưng không có nội dung mới đủ điều kiện để gửi.",
+            webhook_url,
+        )
 
     state["seen"] = list(seen)
     save_state(state)
