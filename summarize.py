@@ -48,6 +48,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Giới hạn an toàn
 MAX_ITEMS_PER_RUN = 15      # tối đa số bài xử lý mỗi lần chạy (tránh flood + rate limit)
+MAX_ITEMS_PER_FEED = 1      # mỗi blog/feed chỉ lấy bài mới nhất
 MAX_ARTICLE_CHARS = 8000    # cắt bớt bài quá dài trước khi đưa vào AI (tiết kiệm token)
 DELAY_BETWEEN_CALLS = 3     # giây nghỉ giữa 2 lần gọi API (né rate limit model free)
 DISCORD_MAX_CHARS = 1900    # giới hạn ký tự / tin nhắn Discord (thực tế 2000, chừa lề)
@@ -100,7 +101,7 @@ def entry_id(entry) -> str:
 
 
 def collect_new_entries(feeds: list[str], seen: set[str]) -> list[dict]:
-    """Duyệt tất cả feed, trả về danh sách bài mới (chưa có trong seen)."""
+    """Duyệt tất cả feed, trả về tối đa 1 bài mới nhất mỗi feed nếu chưa có trong seen."""
     new_items = []
     for url in feeds:
         try:
@@ -110,7 +111,7 @@ def collect_new_entries(feeds: list[str], seen: set[str]) -> list[dict]:
             continue
 
         source = parsed.feed.get("title", url)
-        for entry in parsed.entries:
+        for entry in parsed.entries[:MAX_ITEMS_PER_FEED]:
             eid = entry_id(entry)
             if not eid or eid in seen:
                 continue
@@ -190,13 +191,12 @@ def _extract_email_text(msg) -> str:
 
 
 def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> list[dict]:
-    """Đọc newsletter mới trong nhãn Gmail (READ-ONLY — không sửa/xóa gì trong hộp thư)."""
+    """Đọc newsletter chưa đọc trong nhãn Gmail, rồi đánh dấu đã đọc."""
     items = []
     try:
         imap = imaplib.IMAP4_SSL(IMAP_HOST)
         imap.login(address, app_password)
-        # readonly=True: đảm bảo tuyệt đối không thay đổi trạng thái email của bạn
-        status, _ = imap.select(f'"{GMAIL_LABEL}"', readonly=True)
+        status, _ = imap.select(f'"{GMAIL_LABEL}"', readonly=False)
         if status != "OK":
             print(f"Không mở được nhãn Gmail '{GMAIL_LABEL}'. "
                   f"Kiểm tra tên nhãn có đúng không.", file=sys.stderr)
@@ -204,7 +204,7 @@ def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> li
             return items
 
         since = (datetime.utcnow() - timedelta(days=GMAIL_LOOKBACK_DAYS)).strftime("%d-%b-%Y")
-        status, data = imap.search(None, f"(SINCE {since})")
+        status, data = imap.search(None, "UNSEEN", "SINCE", since)
         if status != "OK":
             imap.logout()
             return items
@@ -215,6 +215,7 @@ def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> li
                 continue
             msg = email.message_from_bytes(msg_data[0][1])
             msg_id = (msg.get("Message-ID") or "").strip()
+            imap.store(eid, "+FLAGS", "\\Seen")
             if not msg_id or msg_id in seen:
                 continue
             body = _extract_email_text(msg)[:MAX_ARTICLE_CHARS]
