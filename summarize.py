@@ -64,6 +64,13 @@ IMAP_HOST = "imap.gmail.com"
 GMAIL_LOOKBACK_DAYS = 7      # chỉ xét email trong N ngày gần nhất (giảm tải)
 
 
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 # ----------------------------- State -----------------------------
 
 def load_state() -> dict:
@@ -191,13 +198,14 @@ def _extract_email_text(msg) -> str:
     return ""
 
 
-def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> list[dict]:
+def collect_gmail_entries(address: str, app_password: str, seen: set[str],
+                          mark_read: bool = True) -> list[dict]:
     """Đọc newsletter chưa đọc trong nhãn Gmail, rồi đánh dấu đã đọc."""
     items = []
     try:
         imap = imaplib.IMAP4_SSL(IMAP_HOST)
         imap.login(address, app_password)
-        status, _ = imap.select(f'"{GMAIL_LABEL}"', readonly=False)
+        status, _ = imap.select(f'"{GMAIL_LABEL}"', readonly=not mark_read)
         if status != "OK":
             print(f"Không mở được nhãn Gmail '{GMAIL_LABEL}'. "
                   f"Kiểm tra tên nhãn có đúng không.", file=sys.stderr)
@@ -216,7 +224,8 @@ def collect_gmail_entries(address: str, app_password: str, seen: set[str]) -> li
                 continue
             msg = email.message_from_bytes(msg_data[0][1])
             msg_id = (msg.get("Message-ID") or "").strip()
-            imap.store(eid, "+FLAGS", "\\Seen")
+            if mark_read:
+                imap.store(eid, "+FLAGS", "\\Seen")
             if not msg_id or msg_id in seen:
                 continue
             body = _extract_email_text(msg)[:MAX_ARTICLE_CHARS]
@@ -315,6 +324,8 @@ def split_message(text: str, limit: int) -> list[str]:
 def main() -> int:
     api_key = os.environ.get("OPENROUTER_API_KEY")
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+    dry_run = env_bool("DRY_RUN")
+    prefix = "[DRY RUN] " if dry_run else ""
 
     if not all([api_key, webhook_url]):
         print("Thiếu biến môi trường: OPENROUTER_API_KEY / DISCORD_WEBHOOK_URL",
@@ -335,9 +346,13 @@ def main() -> int:
     first_run = not STATE_FILE.exists()
 
     # Thu thập từ cả 2 nguồn
-    new_items = collect_new_entries(feeds, seen) if feeds else []
+    rss_items = collect_new_entries(feeds, seen) if feeds else []
+    new_items = list(rss_items)
+    gmail_items = []
     if gmail_on:
-        gmail_items = collect_gmail_entries(gmail_addr, gmail_pass, seen)
+        gmail_items = collect_gmail_entries(
+            gmail_addr, gmail_pass, seen, mark_read=not dry_run
+        )
         print(f"Gmail: tìm thấy {len(gmail_items)} newsletter mới.")
         new_items += gmail_items
     print(f"Tổng cộng {len(new_items)} mục mới.")
@@ -347,10 +362,11 @@ def main() -> int:
     if first_run:
         for item in new_items:
             seen.add(item["id"])
-        state["seen"] = list(seen)
-        save_state(state)
+        if not dry_run:
+            state["seen"] = list(seen)
+            save_state(state)
         send_discord(
-            "✅ Blog Digest đã kích hoạt. Từ giờ bạn sẽ nhận tóm tắt các bài "
+            f"{prefix}✅ Blog Digest đã kích hoạt. Từ giờ bạn sẽ nhận tóm tắt các bài "
             "MỚI đăng sau thời điểm này.",
             webhook_url,
         )
@@ -359,19 +375,29 @@ def main() -> int:
 
     if not new_items:
         print("Không có bài mới. Kết thúc.")
+        send_discord(
+            f"{prefix}✅ Blog Digest chạy xong.\n"
+            f"- RSS mới: {len(rss_items)}\n"
+            f"- Gmail unread: {len(gmail_items)}\n"
+            "- Tóm tắt thành công: 0\n"
+            "- Lỗi: 0",
+            webhook_url,
+        )
         return 0
 
     # Giới hạn số bài xử lý mỗi lần
     new_items = new_items[:MAX_ITEMS_PER_RUN]
 
     summaries = []
-    failed_titles = []
+    failed_items = []
+    no_text_items = []
     for item in new_items:
         print(f"Đang xử lý: {item['title']}")
         # Email đã có content sẵn; RSS thì tải toàn bài từ link
         text = item.get("content") or (fetch_article_text(item["link"]) if item["link"] else "")
         if not text:
             # Không lấy được nội dung → vẫn đánh dấu đã xử lý để không thử lại mãi
+            no_text_items.append(item)
             seen.add(item["id"])
             continue
 
@@ -385,14 +411,15 @@ def main() -> int:
             })
             seen.add(item["id"])
         else:
-            failed_titles.append(item["title"])
-            print(f"Không tóm tắt được, sẽ thử lại lần sau: {item['title']}",
+            failed_items.append(item)
+            seen.add(item["id"])
+            print(f"Không tóm tắt được, gửi fallback title/link: {item['title']}",
                   file=sys.stderr)
         time.sleep(DELAY_BETWEEN_CALLS)
 
     # Gộp thành 1 bản tin (định dạng Markdown của Discord)
-    if summaries:
-        lines = [f"📰 **Bản tin** — {len(summaries)} mục mới\n"]
+    if summaries or failed_items:
+        lines = [f"{prefix}📰 **Bản tin** — {len(summaries)} tóm tắt, {len(failed_items)} fallback\n"]
         for s in summaries:
             block = (
                 f"**{s['title']}**\n"
@@ -402,21 +429,43 @@ def main() -> int:
             if s["link"]:  # email không có link thì bỏ dòng này
                 block += f"🔗 <{s['link']}>\n"
             lines.append(block)
+        if failed_items:
+            lines.append("⚠️ **Chưa tóm tắt được, gửi link trước:**\n")
+            for item in failed_items:
+                block = f"**{item['title']}**\n*{item['source']}*\n"
+                if item["link"]:
+                    block += f"🔗 <{item['link']}>\n"
+                lines.append(block)
+        lines.append(
+            "```text\n"
+            "Run report\n"
+            f"RSS mới: {len(rss_items)}\n"
+            f"Gmail unread: {len(gmail_items)}\n"
+            f"Đã xử lý: {len(new_items)}\n"
+            f"Tóm tắt thành công: {len(summaries)}\n"
+            f"AI fallback: {len(failed_items)}\n"
+            f"Không lấy được nội dung: {len(no_text_items)}\n"
+            f"Dry run: {dry_run}\n"
+            "```"
+        )
         send_discord("\n".join(lines), webhook_url)
-        print(f"Đã gửi bản tin gồm {len(summaries)} mục.")
+        print(f"Đã gửi bản tin gồm {len(summaries)} tóm tắt và {len(failed_items)} fallback.")
     else:
         print("Không tạo được tóm tắt nào.")
-        detail = "\n".join(f"- {title}" for title in failed_titles[:8])
         send_discord(
-            "⚠️ Blog Digest chạy xong nhưng không tạo được tóm tắt nào. "
-            "Khả năng cao model OpenRouter đang lỗi/quá tải.\n\n"
-            f"{detail}" if detail else
-            "⚠️ Blog Digest chạy xong nhưng không có nội dung mới đủ điều kiện để gửi.",
+            f"{prefix}⚠️ Blog Digest chạy xong nhưng không có mục nào gửi được.\n"
+            f"- RSS mới: {len(rss_items)}\n"
+            f"- Gmail unread: {len(gmail_items)}\n"
+            f"- Không lấy được nội dung: {len(no_text_items)}\n"
+            f"- Dry run: {dry_run}",
             webhook_url,
         )
 
-    state["seen"] = list(seen)
-    save_state(state)
+    if dry_run:
+        print("DRY_RUN=true: không ghi state.json và không mark Gmail đã đọc.")
+    else:
+        state["seen"] = list(seen)
+        save_state(state)
     return 0
 
 

@@ -7,6 +7,15 @@ on:
     - cron: "0 */2 * * *"
   # Cho phép bấm chạy tay từ tab Actions để test
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Test only: do not mark Gmail read or update state.json"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 # Cần quyền ghi để commit state.json ngược vào repo
 permissions:
@@ -39,6 +48,7 @@ jobs:
           # Tùy chọn — chỉ cần nếu muốn đọc newsletter từ Gmail
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python summarize.py
 
       - name: Commit state (nếu có thay đổi)
