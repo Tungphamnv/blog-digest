@@ -2,9 +2,10 @@ name: Blog Digest
 
 on:
   schedule:
-    # Chạy mỗi 2 giờ. Cron dùng giờ UTC. (VD "0 */2 * * *" = phút 0 mỗi 2 tiếng)
+    # Chạy 1 lần/ngày lúc 23:00 UTC = 6:00 sáng giờ Việt Nam (hôm sau).
+    # 1 bản tin gộp/ngày đọc tập trung hơn 12 lần ping lẻ tẻ.
     # Lưu ý: cron của GitHub Actions có thể trễ vài phút, đặc biệt giờ cao điểm.
-    - cron: "0 */2 * * *"
+    - cron: "0 23 * * *"
   # Cho phép bấm chạy tay từ tab Actions để test
   workflow_dispatch:
     inputs:
@@ -51,14 +52,17 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python summarize.py
 
-      - name: Commit state (nếu có thay đổi)
+      - name: Commit state + archive (nếu có thay đổi)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add state.json
+          if [ -d archive ]; then
+            git add archive
+          fi
           if git diff --staged --quiet; then
-            echo "State không đổi, bỏ qua commit."
+            echo "Không có gì thay đổi, bỏ qua commit."
           else
-            git commit -m "Cập nhật state [skip ci]"
+            git commit -m "Cập nhật state + archive [skip ci]"
             git push
           fi
