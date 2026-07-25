@@ -62,7 +62,18 @@ jobs:
           fi
           if git diff --staged --quiet; then
             echo "Không có gì thay đổi, bỏ qua commit."
-          else
-            git commit -m "Cập nhật state + archive [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "Cập nhật state + archive [skip ci]"
+          # Nếu remote đã có commit mới (agent khác vừa push), push sẽ bị từ chối
+          # "fetch first". Khi đó kéo commit mới về + rebase rồi thử lại, tối đa 5 lần.
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "Push thành công."
+              exit 0
+            fi
+            echo "Push bị từ chối, kéo commit mới rồi thử lại (lần $i)..."
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "Push thất bại sau 5 lần thử." >&2
+          exit 1
