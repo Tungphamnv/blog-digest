@@ -2,44 +2,85 @@
 # feeds.txt — Danh sách RSS feed cần theo dõi
 # Mỗi dòng 1 URL. Dòng bắt đầu bằng # là ghi chú (bị bỏ qua).
 # Thêm/bớt blog chỉ cần sửa file này, không đụng đến code.
+# Đồng bộ với top 20 trong: nguon-kien-thuc-ai-design.md (07/2026)
 # ============================================================
 
-# ---------------- UX / UI ----------------
+# ---------------- Nhịp hằng ngày ----------------
 
-# Nielsen Norman Group — nền tảng của ngành, bài nghiên cứu kỹ về usability
-https://www.nngroup.com/feed/rss/
-
-# Smashing Magazine — thiên thực hành: workflow, front-end, case study
-https://www.smashingmagazine.com/feed/
-
-# UX Collective — ấn phẩm UX lớn nhất trên Medium, nhịp đăng dày
-https://uxdesign.cc/feed
-
-# ---------------- AI Product ----------------
-
-# Simon Willison — nhật ký "tuần này LLM làm được gì", benchmark model mới hằng ngày
+# Simon Willison — "LLM thực sự làm được gì hôm nay"; lá chắn chống overpromise với khách
 https://simonwillison.net/atom/everything/
 
-# The Product Compass — AI product management với độ sâu kỹ thuật (RAG, agent, workflow)
+# Ben's Bites — 5 phút nắm nhịp thị trường AI, góc nhìn builder/founder (Substack)
+https://www.bensbites.com/feed
+
+# ---------------- UX / UI & AI trong design ----------------
+
+# Nielsen Norman Group — nền tảng lý luận UX + chuỗi bài AI-UX để thuyết phục khách
+https://www.nngroup.com/feed/rss/
+
+# Smashing Magazine — thực hành: design system AI-ready, accessibility, front-end
+https://www.smashingmagazine.com/feed/
+
+# UX Collective — độ phủ rộng nhưng nhiễu; đọc lướt tiêu đề, chỉ mở bài thật trúng
+https://uxdesign.cc/feed
+
+# ---------------- Product & thực chiến ----------------
+
+# Lenny's Newsletter — chuẩn mực tư duy sản phẩm; phần lớn miễn phí
+https://www.lennysnewsletter.com/feed
+
+# The Product Compass — AI PM có chiều sâu kỹ thuật (RAG, agents, evals)
 https://www.productcompass.pm/feed
 
-# Import AI (Jack Clark, đồng sáng lập Anthropic) — nghiên cứu tuần, không thổi phồng
-https://importai.substack.com/feed
+# How I AI (podcast Claire Vo) — feed podcast báo tập mới; xem bản video trên YouTube
+https://anchor.fm/s/1035b1568/podcast/rss
 
-# Lenny's Newsletter — PM lớn nhất; phần lớn miễn phí, bản sâu sau tường phí
-https://www.lennysnewsletter.com/feed
+# ---------------- Tư duy AI & chiến lược (góc founder) ----------------
+
+# One Useful Thing (Ethan Mollick) — tổ chức nên dùng AI thế nào, dựa trên bằng chứng
+https://www.oneusefulthing.org/feed
+
+# Latent Space — AI engineering: cái gì khả thi, tốn bao nhiêu
+https://www.latent.space/feed
+
+# Import AI (Jack Clark) — nghiên cứu tuần, không thổi phồng
+https://importai.substack.com/feed
 
 # Stratechery (Ben Thompson) — lăng kính chiến lược; feed miễn phí chỉ một phần
 https://stratechery.com/feed/
 
-# ---------------- Gợi ý thêm (đang tắt) ----------------
-# Bỏ dấu # ở đầu dòng để bật. Đừng bật hết cùng lúc kẻo bản tin bị ngộp.
+# ---------------- Thực tế ngành engineering ----------------
+
+# Pragmatic Engineer — hiểu ngành eng khi tuyển dev, định giá dự án
+https://blog.pragmaticengineer.com/rss/
+
+# ============================================================
+# NEWSLETTER QUA GMAIL (không có RSS công khai, đọc qua nhãn "Newsletters"
+# bằng IMAP + App Password — xem GMAIL_SENDERS trong summarize.py).
+# KHÔNG khai báo URL ở đây, chỉ liệt kê để tra cứu/đối chiếu.
+# Cần bật bằng cách thêm 2 secret GMAIL_ADDRESS + GMAIL_APP_PASSWORD trên
+# GitHub (Settings → Secrets and variables → Actions). Nếu không set, phần
+# Gmail tự động bỏ qua, RSS vẫn chạy bình thường.
 #
-# Latent Space — blog/podcast "AI engineering"
-# https://www.latent.space/feed
+# 6 nguồn đang theo dõi (source_key dùng trong state.json backlog):
+#   gmail:erik@learnui.design            — Design Hacks (Erik Kennedy)
+#   gmail:tamas@heydesigner.com          — HeyDesigner Weekly
+#   gmail:hello@sarahdoody.com           — Sarah Doody
+#   gmail:uxmovement@substack.com        — UX Movement
+#   gmail:aigoodies@mail.beehiiv.com     — AI Goodies
+#   gmail:lenny+community-wisdom@substack.com — Lenny's — Community Wisdom
 #
-# A List Apart — web standards & best practices
-# https://alistapart.com/main/feed/
-#
-# Growth.Design — case study dạng comic (email-first; nếu không ra feed thì
-# đăng ký email rồi cho qua tính năng Gmail/Kill-the-Newsletter)
+# KHÔNG lấy các sender sau qua Gmail dù chúng cũng nằm trong nhãn Newsletters
+# — vì đã trùng nội dung với feed RSS ở trên (tránh gửi lặp 2 lần/ngày):
+#   lenny@substack.com, lenny+how-i-ai@substack.com,
+#   newsletter@smashingmagazine.com, uxco@substack.com, huryn@substack.com
+# ============================================================
+
+# ---------------- Tra cứu khi cần, không phải feed ----------------
+# Mobbin — https://mobbin.com (pattern UI sản phẩm AI thật)
+# Google Cloud 101 GenAI use cases, Anthropic Customers, OpenAI Stories,
+# Evidently AI ML System Design — xem chi tiết trong nguon-kien-thuc-ai-design.md
+
+# ---------------- Dự phòng (đang tắt) ----------------
+# Growth.Design — case study tâm lý học dạng comic (email-first);
+# ứng viên thay UX Collective nếu thấy quá nhiễu

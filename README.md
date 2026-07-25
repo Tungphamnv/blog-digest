@@ -5,12 +5,18 @@ Tự động đọc RSS các blog bạn theo dõi, tải toàn bài, tóm tắt 
 ## Cách hoạt động
 
 ```
-GitHub Actions (cron mỗi 2h)
-  → đọc feeds.txt → parse RSS → lọc bài mới (state.json)
-  → tải toàn bài (trafilatura) → tóm tắt (OpenRouter free)
-  → gộp thành 1 bản tin → gửi Discord (webhook)
-  → commit state.json ngược vào repo
+GitHub Actions (cron 1 lần/ngày, 7:00 sáng giờ VN)
+  → đọc feeds.txt (RSS) + Gmail (IMAP, tùy chọn)
+  → với MỖI nguồn: có bài mới → lấy bài mới nhất; không có bài mới →
+    lấy bài cũ gần nhất CHƯA từng gửi của nguồn đó (đánh dấu rõ "bài cũ")
+  → tải nội dung CHỈ cho các bài thực sự được chọn (trafilatura / IMAP)
+  → tóm tắt (OpenRouter free) → gộp thành 1 bản tin → gửi Discord (webhook)
+  → commit state.json (seen + backlog từng nguồn) ngược vào repo
 ```
+
+Mỗi nguồn (feed hoặc newsletter) được tính độc lập: nếu 1 nguồn im ắng vài
+ngày, bài cũ nhất chưa đọc của riêng nguồn đó sẽ được đưa vào bản tin thay vì
+bỏ sót, kèm ngày đăng gốc.
 
 ## Cài đặt (khoảng 15 phút)
 
@@ -63,7 +69,9 @@ Ngoài RSS, script có thể đọc thẳng newsletter trong Gmail và tóm tắ
 ### 1. Tạo nhãn + filter trong Gmail
 - Tạo nhãn tên `Newsletters` (Settings → Labels → Create new label).
 - Tạo filter đưa newsletter vào nhãn đó: khi có email newsletter, mở email → menu ⋮ → **Filter messages like these** → **Create filter** → tích **Apply the label: Newsletters** (nên tích thêm **Skip the Inbox** nếu muốn newsletter không làm rối inbox).
+- Vào Settings → **Forwarding and POP/IMAP** → tab **Labels**, đảm bảo nhãn `Newsletters` có tích **Show in IMAP** (bắt buộc, nếu không script sẽ không mở được nhãn qua IMAP).
 - (Nếu đặt tên nhãn khác, sửa `GMAIL_LABEL` trong `summarize.py`.)
+- Script chỉ xử lý đúng danh sách sender khai báo trong `GMAIL_SENDERS` (đầu file `summarize.py`) — hiện có 6 nguồn, xem chi tiết + lý do ở cuối `feeds.txt`. Muốn thêm/bớt sender thì sửa dict này.
 
 ### 2. Tạo App Password của Google
 App Password là mật khẩu riêng cho ứng dụng, KHÔNG phải mật khẩu chính của bạn.
