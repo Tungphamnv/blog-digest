@@ -2,10 +2,10 @@ name: Blog Digest
 
 on:
   schedule:
-    # Chạy 1 lần/ngày lúc 00:00 UTC = 7:00 sáng giờ Việt Nam (UTC+7, không có DST).
+    # Chạy 1 lần/ngày lúc 23:00 UTC = 6:00 sáng giờ Việt Nam (hôm sau).
     # 1 bản tin gộp/ngày đọc tập trung hơn 12 lần ping lẻ tẻ.
     # Lưu ý: cron của GitHub Actions có thể trễ vài phút, đặc biệt giờ cao điểm.
-    - cron: "0 0 * * *"
+    - cron: "0 23 * * *"
   # Cho phép bấm chạy tay từ tab Actions để test
   workflow_dispatch:
     inputs:
