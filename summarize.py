@@ -272,6 +272,15 @@ def imap_connect(address: str, app_password: str) -> "imaplib.IMAP4_SSL | None":
         return None
 
 
+def _make_gmail_id(source_key: str, sort_key: str, title: str) -> str:
+    """ID ổn định cho 1 mail: sender + ngày + tiêu đề. KHÔNG dùng Message-ID
+    header — 1 số nguồn (Substack/Beehiiv) có thể thiếu/đổi header này, và
+    quan trọng hơn: id này chỉ dùng để chống trùng (seen/backlog), việc tải
+    lại nội dung sau này tra theo sender+ngày+tiêu đề (fetch_gmail_body),
+    không phụ thuộc Message-ID."""
+    return f"{source_key}::{sort_key}::{title.strip().lower()}"
+
+
 def build_gmail_candidates(imap) -> dict[str, dict]:
     """Với mỗi sender đã duyệt, tìm mail trong N ngày gần nhất (chỉ lấy
     header, KHÔNG tải nội dung — nội dung chỉ tải sau cho mục thực sự được
@@ -283,21 +292,23 @@ def build_gmail_candidates(imap) -> dict[str, dict]:
         candidates = []
         try:
             status, data = imap.search(None, "FROM", sender, "SINCE", since)
-            if status == "OK":
-                for eid in data[0].split():
+            if status != "OK":
+                print(f"IMAP search lỗi cho {sender}: status={status} data={data}",
+                      file=sys.stderr)
+            else:
+                eids = data[0].split() if data and data[0] else []
+                for eid in eids:
                     status, msg_data = imap.fetch(
-                        eid, "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID SUBJECT DATE)])"
+                        eid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)])"
                     )
                     if status != "OK" or not msg_data or not msg_data[0]:
                         continue
                     msg = email.message_from_bytes(msg_data[0][1])
-                    msg_id = (msg.get("Message-ID") or "").strip()
-                    if not msg_id:
-                        continue
                     display_date, sort_key = _parse_email_date(msg)
+                    title = _decode_mime(msg.get("Subject")) or "(không tiêu đề)"
                     candidates.append({
-                        "id": msg_id,
-                        "title": _decode_mime(msg.get("Subject")) or "(không tiêu đề)",
+                        "id": _make_gmail_id(source_key, sort_key, title),
+                        "title": title,
                         "link": None,
                         "source": source_name,
                         "source_key": source_key,
@@ -311,23 +322,49 @@ def build_gmail_candidates(imap) -> dict[str, dict]:
     return pool
 
 
-def fetch_gmail_body(imap, message_id: str) -> str:
-    """Tải nội dung 1 email cụ thể theo Message-ID (dùng lúc mục đó thực sự
-    được chọn để tóm tắt — kể cả khi lấy ra từ backlog nhiều ngày sau)."""
-    if imap is None or not message_id:
+def fetch_gmail_body(imap, item: dict) -> str:
+    """Tải nội dung 1 email cụ thể — tra theo sender + ngày đăng (published_sort)
+    +/- 1 ngày (bù lệch múi giờ), khớp thêm tiêu đề nếu 1 ngày có nhiều mail.
+    Dùng được cho cả candidate mới lấy qua IMAP lẫn mục backlog cũ/seed thủ công,
+    vì không phụ thuộc Message-ID."""
+    if imap is None:
+        return ""
+    source_key = item.get("source_key", "")
+    sender = source_key.split("gmail:", 1)[-1] if source_key.startswith("gmail:") else ""
+    sort_key = item.get("published_sort") or ""
+    if not sender or not sort_key:
         return ""
     try:
-        status, data = imap.search(None, "HEADER", "Message-ID", f'"{message_id}"')
+        base = datetime.strptime(sort_key, "%Y-%m-%d")
+    except Exception:
+        return ""
+    since = (base - timedelta(days=1)).strftime("%d-%b-%Y")
+    before = (base + timedelta(days=2)).strftime("%d-%b-%Y")
+    try:
+        status, data = imap.search(None, "FROM", sender, "SINCE", since, "BEFORE", before)
         if status != "OK" or not data or not data[0]:
             return ""
-        eid = data[0].split()[-1]
-        status, msg_data = imap.fetch(eid, "(RFC822)")
+        eids = data[0].split()
+        if not eids:
+            return ""
+        chosen = eids[0]
+        title = (item.get("title") or "").strip().lower()
+        if len(eids) > 1 and title:
+            for eid in eids:
+                status, msg_data = imap.fetch(eid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])")
+                if status != "OK" or not msg_data or not msg_data[0]:
+                    continue
+                msg = email.message_from_bytes(msg_data[0][1])
+                if _decode_mime(msg.get("Subject")).strip().lower() == title:
+                    chosen = eid
+                    break
+        status, msg_data = imap.fetch(chosen, "(RFC822)")
         if status != "OK" or not msg_data or not msg_data[0]:
             return ""
         msg = email.message_from_bytes(msg_data[0][1])
         return _extract_email_text(msg)[:MAX_ARTICLE_CHARS]
     except Exception as e:
-        print(f"Lỗi tải nội dung mail {message_id}: {e}", file=sys.stderr)
+        print(f"Lỗi tải nội dung mail ({sender}, {sort_key}): {e}", file=sys.stderr)
         return ""
 
 
@@ -537,7 +574,7 @@ def main() -> int:
         for item in all_items:
             print(f"Đang xử lý ({'bài cũ' if item.get('is_backlog') else 'mới'}): {item['title']}")
             if item.get("source_key", "").startswith("gmail:"):
-                text = fetch_gmail_body(imap, item["id"])
+                text = fetch_gmail_body(imap, item)
             else:
                 text = item.get("content") or (fetch_article_text(item["link"]) if item.get("link") else "")
             if not text:

@@ -213,16 +213,16 @@
   "backlog": {
     "gmail:erik@learnui.design": [
       {
-        "id": "19f895870759d26e",
-        "title": "The #1 Way to Spice Up Your Designs (And Create a More Cohesive Brand)",
+        "id": "gmail:erik@learnui.design::2026-07-24::why i’m jealous of graphic designers",
+        "title": "Why I’m jealous of graphic designers",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
         "source_key": "gmail:erik@learnui.design",
-        "published": "22/07/2026",
-        "published_sort": "2026-07-22"
+        "published": "24/07/2026",
+        "published_sort": "2026-07-24"
       },
       {
-        "id": "19f7f0b74a67daec",
+        "id": "gmail:erik@learnui.design::2026-07-20::an important but *non-obvious* law of ui 🔥",
         "title": "An important but *NON-obvious* law of UI 🔥",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -231,7 +231,16 @@
         "published_sort": "2026-07-20"
       },
       {
-        "id": "19f6f9883a5926c1",
+        "id": "gmail:erik@learnui.design::2026-07-22::the #1 way to spice up your designs (and create a more cohesive brand)",
+        "title": "The #1 Way to Spice Up Your Designs (And Create a More Cohesive Brand)",
+        "link": null,
+        "source": "Design Hacks (Erik Kennedy)",
+        "source_key": "gmail:erik@learnui.design",
+        "published": "22/07/2026",
+        "published_sort": "2026-07-22"
+      },
+      {
+        "id": "gmail:erik@learnui.design::2026-07-17::my favorite usability principle no one talks about",
         "title": "My favorite usability principle NO ONE talks about",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -240,7 +249,7 @@
         "published_sort": "2026-07-17"
       },
       {
-        "id": "19f654c03c30328d",
+        "id": "gmail:erik@learnui.design::2026-07-15::the most important color skill",
         "title": "The most important color skill",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -249,7 +258,7 @@
         "published_sort": "2026-07-15"
       },
       {
-        "id": "19f5aff15d1f1e6b",
+        "id": "gmail:erik@learnui.design::2026-07-13::the best color system for ui designers to use",
         "title": "The best color system for UI designers to use",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -258,7 +267,7 @@
         "published_sort": "2026-07-13"
       },
       {
-        "id": "19f4b8bff3476df9",
+        "id": "gmail:erik@learnui.design::2026-07-10::the only 2 \"cheat codes\" in design (part 2)",
         "title": "The only 2 \"cheat codes\" in design (part 2)",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -267,7 +276,7 @@
         "published_sort": "2026-07-10"
       },
       {
-        "id": "19f413faf9e322c9",
+        "id": "gmail:erik@learnui.design::2026-07-08::there are only 2 cheat codes in design. here is 1 of them.",
         "title": "There are only 2 cheat codes in design. Here is 1 of them.",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -276,7 +285,7 @@
         "published_sort": "2026-07-08"
       },
       {
-        "id": "19f36f2ca1f52d7c",
+        "id": "gmail:erik@learnui.design::2026-07-06::what i got wrong about whitespace",
         "title": "What I got wrong about whitespace",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -285,7 +294,7 @@
         "published_sort": "2026-07-06"
       },
       {
-        "id": "19f277f458f5bf6b",
+        "id": "gmail:erik@learnui.design::2026-07-03::how many colors should your design have?",
         "title": "How many colors should your design have?",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -294,7 +303,7 @@
         "published_sort": "2026-07-03"
       },
       {
-        "id": "19f1d327843f2882",
+        "id": "gmail:erik@learnui.design::2026-07-01::my #1 unpublished design tip",
         "title": "My #1 unpublished design tip",
         "link": null,
         "source": "Design Hacks (Erik Kennedy)",
@@ -303,11 +312,61 @@
         "published_sort": "2026-07-01"
       }
     ],
-    "gmail:tamas@heydesigner.com": [],
-    "gmail:hello@sarahdoody.com": [],
-    "gmail:uxmovement@substack.com": [],
-    "gmail:aigoodies@mail.beehiiv.com": [],
-    "gmail:lenny+community-wisdom@substack.com": [],
+    "gmail:tamas@heydesigner.com": [
+      {
+        "id": "gmail:tamas@heydesigner.com::2026-07-07::39 principles for designing human-ai interaction",
+        "title": "39 principles for designing human-AI interaction",
+        "link": null,
+        "source": "HeyDesigner Weekly",
+        "source_key": "gmail:tamas@heydesigner.com",
+        "published": "07/07/2026",
+        "published_sort": "2026-07-07"
+      }
+    ],
+    "gmail:hello@sarahdoody.com": [
+      {
+        "id": "gmail:hello@sarahdoody.com::2026-07-06::claude tools for ux research, pm skills, walmart's ai agent, & more",
+        "title": "Claude tools for UX research, PM skills, Walmart's AI agent, & more",
+        "link": null,
+        "source": "Sarah Doody",
+        "source_key": "gmail:hello@sarahdoody.com",
+        "published": "06/07/2026",
+        "published_sort": "2026-07-06"
+      }
+    ],
+    "gmail:uxmovement@substack.com": [
+      {
+        "id": "gmail:uxmovement@substack.com::2026-07-02::why data entry ux is killing your dashboard",
+        "title": "Why Data Entry UX Is Killing Your Dashboard",
+        "link": null,
+        "source": "UX Movement",
+        "source_key": "gmail:uxmovement@substack.com",
+        "published": "02/07/2026",
+        "published_sort": "2026-07-02"
+      }
+    ],
+    "gmail:aigoodies@mail.beehiiv.com": [
+      {
+        "id": "gmail:aigoodies@mail.beehiiv.com::2026-07-01::the vibe-coded portfolio / guide, 20+ examples, tips + tricks",
+        "title": "the Vibe-Coded Portfolio / guide, 20+ examples, tips + tricks",
+        "link": null,
+        "source": "AI Goodies",
+        "source_key": "gmail:aigoodies@mail.beehiiv.com",
+        "published": "01/07/2026",
+        "published_sort": "2026-07-01"
+      }
+    ],
+    "gmail:lenny+community-wisdom@substack.com": [
+      {
+        "id": "gmail:lenny+community-wisdom@substack.com::2026-06-13::🧠 community wisdom: how ai is changing product operating models, tracking work stress with whoop, whether you nee…",
+        "title": "🧠 Community Wisdom: How AI is changing product operating models, tracking work stress with Whoop, whether you nee…",
+        "link": null,
+        "source": "Lenny's — Community Wisdom",
+        "source_key": "gmail:lenny+community-wisdom@substack.com",
+        "published": "13/06/2026",
+        "published_sort": "2026-06-13"
+      }
+    ],
     "https://simonwillison.net/atom/everything/": [
       {
         "id": "https://simonwillison.net/2026/Jul/23/seth-larson/#atom-everything",
